@@ -1,25 +1,32 @@
-function [z] = monoLS2(y,p,monotonicDerivativeFlag,regularizeFlag)
+function [z] = monoLS2(y,pNorm,enforcedDerivative,regularizedElements)
 %Same as monoLS, but framing the problem differently, to avoid
 %ill-conditioned situations
-if nargin<2 || isempty(p)
-    p=2;
+
+%%INPUT:
+%y = data, vector
+%pNorm = norm to minimize, 2 is default (LS)
+%enforcedDerivative = (order-1) of last derivative that is constrained to be
+%non-negative (default=0)
+%regularizedElements = number of derivative samples at the beginning that are forced to be exactly 0
+if nargin<2 || isempty(pNorm)
+    pNorm=2;
 end
-if nargin<3 || isempty(monotonicDerivativeFlag)
-    monotonicDerivativeFlag=0;
+if nargin<3 || isempty(enforcedDerivative)
+    enforcedDerivative=0;
 end
-if nargin<4 || isempty(regularizeFlag) || monotonicDerivativeFlag==0 
+if nargin<4 || isempty(regularizedElements) || enforcedDerivative==0 
     %No regularization allowed if only one derivative is being forced,
     %otherwise we may lose monotonicity
-    regularizeFlag=0;
+    regularizedElements=0;
 else
-    regularizeFlag=0;
+    regularizedElements=0;
     warning('monoLS2 doesn''t work well with regularization, ignoring.')
 end
 
 if numel(y)~=length(y) %More than 1 vector (matrix input, acting along columns)
     z=nan(size(y));
     for i=1:size(y,2)
-        z(:,i)=monoLS2(y(:,i),p,monotonicDerivativeFlag,regularizeFlag);
+        z(:,i)=monoLS2(y(:,i),pNorm,enforcedDerivative,regularizedElements);
     end
     
 else %Vector input-data
@@ -43,12 +50,12 @@ else %Vector input-data
 
     %Optimization
     %First, construct matrix that computes data from optimized variables: (By induction!)
-    if monotonicDerivativeFlag<numel(y)
+    if enforcedDerivative<numel(y)
         A=eye(numel(y));
         B=diag(ones(size(y)))-diag(ones(length(y)-1,1),1); %This computes 1st derivative
         B(end,:)=[];
         b=zeros(size(B,1),1); %This enforces positivity of 1st der
-        for i=1:monotonicDerivativeFlag
+        for i=1:enforcedDerivative
             Baux=B(end-numel(y)+1+i:end-1,:)-B(end-numel(y)+i+2:end,:); %Computes succesive derivatives
             baux=1e-12*ones(size(Baux,1),1);
             B=[B;-Baux];
@@ -61,23 +68,23 @@ else %Vector input-data
     w0=pp(2)+pp(1)*[0:numel(y)-1]';
     Aeq=[];
     beq=[];
-    if regularizeFlag~=0 %Forcing the value of the m-th derivative (m=monotonicDerivativeFlag+1), 
+    if regularizedElements~=0 %Forcing the value of the m-th derivative (m=monotonicDerivativeFlag+1), 
        %which is the last constrained one, to be exactly 0 for the last n=regularizeFlag samples.
        %This avoids over-fitting to the first few datapoints (especially the
        %1st). %It is equivalent to reducing the size of the vector w() to be estimated.
-       Aeq=zeros(regularizeFlag,length(w0));
-       Aeq(:,end-regularizeFlag+1:end)=eye(regularizeFlag); 
-       beq=zeros(regularizeFlag,1);
+       Aeq=zeros(regularizedElements,length(w0));
+       Aeq(:,end-regularizedElements+1:end)=eye(regularizedElements); 
+       beq=zeros(regularizedElements,1);
     end
 
     opts=optimoptions('fmincon','Display','off','SpecifyObjectiveGradient',true);
-    w1=fmincon(@(x) cost(y,A,x,p),w0,B,b,Aeq,beq,zeros(size(w0)),[],[],opts); 
+    w1=fmincon(@(x) cost(y,A,x,pNorm),w0,B,b,Aeq,beq,zeros(size(w0)),[],[],opts); 
     zz=A*w1;
     
     
     %Dealing with some ill-conditioned cases, in which a line is better
     %than the solution found:
-    if norm(zz-y,p)>norm(A*w0-y,p)
+    if norm(zz-y,pNorm)>norm(A*w0-y,pNorm)
        zz=A*w0;
     end
 

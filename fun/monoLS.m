@@ -5,13 +5,20 @@ function [z] = monoLS(y,p,monotonicDerivativeFlag,regularizeFlag)
 %y: the column vector or matrix to smooth (monoLS acts along dim 1)
 %p: norm used for minimization. Default p=2 (least squares)
 %monotonicDerivativeFlag: order of the derivatives forced to be of constant sign. =0 means
-%monotonic z, =2 means monotonic z & monotonic derivative (e.g. concave or
-%convex all the way), =3 forces the second derivative to be of constant
+%monotonic z, =1 means monotonic z & monotonic derivative (e.g. concave or
+%convex all the way), =2 forces the second derivative to be of constant
 %sign too, etc.
 %regularizeFlag: number of samples that are force to have a zero value for
 %the last derivative forced by monotonicDerivativeFlag. These samples are
 %taken at the end of the z if y is increasing, and at the beginning of z if
 %it is decreasing. It avoids overfit of said samples.
+%OUTPUT:
+%z=Best-fit approximation of data given constraints
+%Notice that a monotonic best-fit is always piece-wise constant (derivative is null almost everywhere) in presence
+%of noise (i.e. if data is not truly monotonic). In the same way, if more
+%derivatives are enforced, the last enforced one will be piece-wise
+%constant, so one order less will be piece-wise linear, two orders less
+%will be piece-wise quadratic and so forth.
 
 %TODO:
 %1) Confim that the optimization (p=2) works (against some good optimization library?)
