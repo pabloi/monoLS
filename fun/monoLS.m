@@ -1,4 +1,4 @@
-function [z] = monoLS(y,p,monotonicDerivativeFlag,regularizeFlag)
+function [z] = monoLS(y,p,monotonicDerivativeFlag,regularizeFlag,forceSign)
 %This function does an p-norm minimization of (z-y), subject to z being monotonic
 %(or constant?). The returned vector z is a 'smoothed' version of y.
 %INPUTS:
@@ -21,26 +21,33 @@ function [z] = monoLS(y,p,monotonicDerivativeFlag,regularizeFlag)
 %will be piece-wise quadratic and so forth.
 
 %TODO:
-%1) Confim that the optimization (p=2) works (against some good optimization library?)
-%2) Make sure optimization (p=2) is efficient
-%3) Allow for user to enforce sign of optimization (increasing or decreasing)
+%1) Confim that the optimization (p=2) works & is fast (against some good optimization library?)
 %4) Add optimization over both increasing and decreasing functions, and
 %choose the best fit (still according to p-norm) over both.
-%5) Fix convergence for p~=0
+%5) Fix convergence for p~=2 (?)
 
-
+%% ARGUMENT CHECK:
 if nargin<2 || isempty(p)
     p=2;
 end
 if nargin<3 || isempty(monotonicDerivativeFlag)
     monotonicDerivativeFlag=0;
+elseif monotonicDerivativeFlag>numel(y)
+    error('Cannot force the sign of so many derivatives!')
 end
 if nargin<4 || isempty(regularizeFlag) || monotonicDerivativeFlag==0 
-    %No regularization allowed if only one derivative is being forced,
-    %otherwise we may lose monotonicity
+    %No regularization allowed if only one derivative is being forced, otherwise we may lose monotonicity
     regularizeFlag=0;
 end
+if nargin<5 || isempty(forceSign)
+    %Determine if data is increasing or decreasing through the best 2-norm line fit:
+    %pp=polyfit([1:numel(y)]',y,1);
+    %forceSign=sign(pp(1));
+    forceSign=sign(mean(diff(y))); %Alternative determination of increasing/decreasing
+    %s=sign(median(diff(y)));
+end
 
+%%
 if numel(y)~=length(y) %More than 1 vector (matrix input, acting along columns)
     z=nan(size(y));
     for i=1:size(y,2)
@@ -48,51 +55,85 @@ if numel(y)~=length(y) %More than 1 vector (matrix input, acting along columns)
     end
     
 else %Vector input-data
-    z=nan(size(y));    
+    %Remove NaNs:   
+    [y,idx]=removeNaN(y);
+
+    [y,a,s]=flipIfNeeded(y,forceSign);
+
+    %%Optimization
+    %Get first guess:
+    initDataGuess=defaultDataGuess(y); %Default is line: admissible as long as the slope is positive
+
+    %Construct matrix that computes data from optimized variables: (By recursion!)
+    [A,w0]=getMatrix(numel(y),monotonicDerivativeFlag,initDataGuess,regularizeFlag);
+
+    %Now optimize:
+    zz=optimize(A,y,w0,p);
+
+    %Dealing with some ill-conditioned cases, in which a line is better than the solution found:
+    if norm(zz-y,p)>norm(A*w0-y,p)
+       zz=A*w0;
+    end
+
+    %Invert the flipping and positivization
+    [zz]=unflip(zz,s,a);
+
+    %Reconstructing data by adding the NaN values that were present
+    z=nan(size(y)); 
+    z(~idx)=zz;
+end
+
+end
+
+function [f,g,h]=cost(y,A,w,p)
+    f=norm(y-A*w,p)^p;
+    g=p*sign(A*w-y)'.*abs(A*w-y)'.^(p-1) *A;
+    h=p*(p-1)*A'*A;
+end
+
+function z=defaultDataGuess(y,order)
+%if nargin<2 || order==0
+    %First guess (init) for optimization target:
+        x=[0:numel(y)-1]';
+        pp=polyfit(x,y,1); %Fit a line to use as initial estimate: a line is always admissible!
+        if pp(1)<0
+            pp(1)=0;
+            pp(2)=mean(y);
+        end
+        z=pp(2)+pp(1)*x;
+%else
+%    z=monoLS(y,2,order-1,[]);
+%end
+end
+
+function [y,idx]=removeNaN(y)
     y=y(:); %Column vector
     idx=isnan(y);
-    if ~all(idx)
     y=y(~idx);
+end
 
-    %Determine if data is increasing or decreasing through the best 2-norm line fit:
-    pp=polyfit([1:numel(y)]',y,1);
-    s=sign(pp(1));
-    s=sign(mean(diff(y))); %Alternative determination of increasing/decreasing
-    %s=sign(median(diff(y)));
+function [z,a,s]=flipIfNeeded(y,s)
+%Flips y as needed to get data that is positive, increasing and so on.
 
-    %To make it simple, we flip the data so that it is always increasing & positive
+%To make it simple, we flip the data so that it is always increasing & positive
+if s>0
+    y=-y; %Data is now decreasing, f'<0
+end
+a=min(y)-1;
+y=y-a; %Data is now f>0 & f'<0
+z=flipud(y); %Data is now f>0, f'>0, as I inverted the 'x' axis
+end
+
+function [z]=unflip(y,s,a)
+    %Invert the flipping and positivization
+    z=flipud(y);
+    z=z+a;
     if s>0
-        y=-y; %Data is now decreasing, f'<0
+        z=-z;
     end
-    a=min(y)-1;
-    y=y-a; %Data is now f>0 & f'<0
-    y=flipud(y); %Data is now f>0, f'>0, as I inverted the 'x' axis
+end
 
-    %Optimization
-    %First, construct matrix that computes data from optimized variables: (By induction!)
-    if monotonicDerivativeFlag<numel(y)
-        A=tril(ones(numel(y)));
-        %First guess (init) for optimization target:
-        w0=zeros(size(A,2),1);
-        pp=polyfit([0:numel(y)-1]',y,1); %Fit a line to use as initial estimate: a line is always admissible!
-        w0(1)=pp(2);
-        w0(2:end)=pp(1);
-        for i=1:monotonicDerivativeFlag
-            A(:,i+1:end)=cumsum(A(:,i+1:end),2,'reverse');
-            w0(3:end)=0; %If working with 2nd or higher derivative, those derivatives are null for a line
-        end
-    else
-        error('Cannot force the sign of so many derivatives!')
-    end
-
-    if regularizeFlag~=0 %Forcing the value of the m-th derivative (m=monotonicDerivativeFlag+1), 
-       %which is the last constrained one, to be exactly 0 for the last n=regularizeFlag samples.
-       %This avoids over-fitting to the first few datapoints (especially the
-       %1st). %It is equivalent to reducing the size of the vector w() to be estimated.
-       A(:,end-regularizeFlag+1:end)=[]; 
-       w0(end-regularizeFlag+1:end)=[];
-    end
-
+function zz=optimize(A,y,w0,p)
     if p==2
         %Solver 1: efficient but simple, does not converge for more than 3 derivatives
         %opts=optimset('Display','off');
@@ -133,31 +174,23 @@ else %Vector input-data
         w1=fmincon(@(x) cost(y,A,x,p),w0,[],[],[],[],zeros(size(w0)),[],[],opts); 
         zz=A*w1;
     end
-    
-    
-    %Dealing with some ill-conditioned cases, in which a line is better
-    %than the solution found:
-    if norm(zz-y,p)>norm(A*w0-y,p)
-       zz=A*w0;
-    end
-
-    %Invert the flipping and positivization
-    zz=flipud(zz);
-    zz=zz+a;
-    if s>0
-        zz=-zz;
-    end
-    
-    %Reconstructing data by adding the NaN values that were present
-    z(~idx)=zz;
-    else
-        z=y; %All elements are NaN
-    end
-end
 end
 
-function [f,g,h]=cost(y,A,w,p)
-    f=norm(y-A*w,p)^p;
-    g=p*sign(A*w-y)'.*abs(A*w-y)'.^(p-1) *A;
-    h=p*(p-1)*A'*A;
+function [A,initSpaceGuess]=getMatrix(dataSize,order,initDataGuess,regularizeN)
+    initSpaceGuess=[];
+    %First, construct matrix that computes data from optimized variables: (By recursion!)
+    A=tril(ones(dataSize));
+    for i=1:order
+        A(:,i+1:end)=cumsum(A(:,i+1:end),2,'reverse');
+    end
+    if regularizeN~=0 %Forcing the value of the m-th derivative (m=monotonicDerivativeFlag+1), 
+       %which is the last constrained one, to be exactly 0 for the last n=regularizeFlag samples.
+       %This avoids over-fitting to the first few datapoints (especially the
+       %1st). %It is equivalent to reducing the size of the vector w() to be estimated.
+       A(:,end-regularizeN+1:end)=[]; 
+    end
+    if nargin>2 && ~isempty(initDataGuess)
+        w0=A\initDataGuess;
+        initSpaceGuess=w0;
+    end
 end
