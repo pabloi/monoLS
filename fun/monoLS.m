@@ -4,10 +4,10 @@ function [z] = monoLS(y,normP,monotonicDerivativeN,regularizeN,oddSign,evenSign)
 %INPUTS:
 %y: the column vector or matrix to smooth (monoLS acts along dim 1)
 %p: norm used for minimization. Default p=2 (least squares)
-%monotonicDerivativeFlag: order of the derivatives forced to be of constant sign. =0 means
-%monotonic z, =1 means monotonic z & monotonic derivative (e.g. concave or
-%convex all the way), =2 forces the second derivative to be of constant
-%sign too, etc.
+%monotonicDerivativeFlag: order of the derivatives forced to be of constant sign. 
+%=0 means monotonic z (no derivatives forces)
+%=1 means monotonic z & monotonic derivative(ie. convex or concave all the way)
+%=2 forces the second derivative to be non-decreasing too, etc.
 %regularizeFlag: number of samples that are force to have a zero value for
 %the last derivative forced by monotonicDerivativeFlag. These samples are
 %taken at the end of the z if y is increasing, and at the beginning of z if
@@ -25,7 +25,7 @@ function [z] = monoLS(y,normP,monotonicDerivativeN,regularizeN,oddSign,evenSign)
 
 %% ARGUMENT CHECK:
 if nargin<2 || isempty(normP)
-    normP=2;
+    normP=[];
 end
 if nargin<3 || isempty(monotonicDerivativeN)
     monotonicDerivativeN=0;
@@ -34,7 +34,7 @@ elseif monotonicDerivativeN>numel(y)
 end
 if nargin<4 || isempty(regularizeN) || monotonicDerivativeN==0 
     %No regularization allowed if only one derivative is being forced, otherwise we may lose monotonicity
-    regularizeN=0;
+    regularizeN=[];
 end
 if nargin<5 || isempty(oddSign) || oddSign==0
     %Determine if data is increasing or decreasing through the best 2-norm line fit:
@@ -45,7 +45,10 @@ if nargin<5 || isempty(oddSign) || oddSign==0
     %s=sign(median(diff(y)));
 end
 if nargin<6 || isempty(evenSign) || evenSign==0
-   evenSign=NaN; %Doxy 
+    evenSign=-oddSign; %this forces asymptotic-like behavior as default (i.e. decaying exponentials rather exploding ones)
+end
+if monotonicDerivativeN==0 %Regardless of everything else: no evenSign if no higher order derivatives are constrained in sign
+    evenSign=0;
 end
 
 %%
@@ -55,34 +58,43 @@ if numel(y)~=length(y) %More than 1 vector (matrix input, acting along columns)
         z(:,i)=monoLS(y(:,i),normP,monotonicDerivativeN,regularizeN);
     end
 else %Vector input-data
-    [y,a,s]=flipIfNeeded(y,oddSign,evenSign);
+    [y,a,s,f]=flipIfNeeded(y,oddSign,evenSign);
 
     [z] = incLS(y,normP,monotonicDerivativeN,regularizeN);
 
     %Invert the flipping and positivization
-    [z]=unflip(z,s,a);
+    [z]=unflip(z,s,a,f);
 end
 
 end
 
-function [z,a,s]=flipIfNeeded(y,oddSign,evenSign)
+function [z,a,s,f]=flipIfNeeded(y,oddSign,evenSign)
 %Flips y as needed to get data that is positive, increasing and so on.
-
-%To make it simple, we flip the data so that it is always increasing & positive
-if oddSign>0
-    y=-y; %Data is now decreasing, f'<0
-end
-s=oddSign;
-a=min(y)-1;
-y=y-a; %Data is now f>0 & f'<0
-z=flipud(y); %Data is now f>0, f'>0, as I inverted the 'x' axis
-end
-
-function [z]=unflip(y,s,a)
-    %Invert the flipping and positivization
-    z=flipud(y);
-    z=z+a;
-    if s>0
-        z=-z;
+s=0; f=0;
+if evenSign==0 || sign(evenSign)==sign(oddSign) %Neither convex nor concave OR all derivatives of the same sign
+    if oddSign<0 %Want to fit decreasing
+        y=-y;
+        s=1;
     end
+else %Even and odd derivatives are of different sign
+    y=flipud(y); %Flipping the data indexing, which flips the sign of all odd derivatives
+    f=1;
+    if oddSign>0 %If we wanted increasing fit
+        y=-y;
+        s=1;
+    end
+end
+
+a=min(y)-1;
+z=y-a; %This ensures positive data
+end
+
+function [z]=unflip(y,s,a,f)
+    z=y+a;
+    if s==1
+       z=-z;
+    end
+    if f==1
+        z=flipud(z);
+    end 
 end
