@@ -1,15 +1,15 @@
 function [z] = incLS(y,normP,monotonicDerivativeN,regularizeN)
-%This function does an p-norm minimization of (z-y), subject to z being non-decreasing. The returned vector z is a 'smoothed' version of y.
-%%%%%INPUTS:
+%This function does an p-norm minimization of (z-y), subject to z being non-decreasing, with non-decreasing derivatives (i.e. concave) if requested. The returned vector z is a 'smoothed' version of y. This function is called by monoLS.
+%%%INPUTS:
 %y: column vector to smooth
 %normP: norm used for minimization. Default normP=2 (least squares)
 %monotonicDerivativeN: number of derivatives forced to be non-decreasing
-% =1 means monotonic z & monotonic derivative (i.e. concave) 
+% =1 means monotonic z & monotonic derivative (i.e. concave)
 % =2 forces the second derivative to be monotonic
 %regularizeN: number of samples that are force to be =0 for
 %the last derivative forced by monotonicDerivativeFlag. These samples are
 %taken at the end of the z. It avoids overfitting of said samples.
-%%%%%%OUTPUT:
+%%%%OUTPUT:
 %z=Best-fit approximation of data given constraints
 %Notice that a monotonic best-fit is always piece-wise constant (derivative is null almost everywhere) in presence
 %of noise (i.e. if data is not truly monotonic). In the same way, if more
@@ -28,21 +28,28 @@ function [z] = incLS(y,normP,monotonicDerivativeN,regularizeN)
 %choose the best fit (still according to p-norm) over both.
 %5) Fix convergence for p~=2 (?)
 %% ARGUMENT CHECK:
+if length(y)~=numel(y)
+  error('incLS:dataFormat','Data (y) is not a vector')
+end
+y=reshape(y,length(y),1);
 if nargin<2 || isempty(normP)
     normP=2;
 end
 if nargin<3 || isempty(monotonicDerivativeN)
     monotonicDerivativeN=0;
 elseif monotonicDerivativeN>numel(y)
-    error('Cannot force the sign of so many derivatives!')
+    error(['Cannot force the sign of ' num2str(monotonicDerivativeN) ' derivatives with only ' num2str(numel(y)) ' datapoints!'])
+elseif monotonicDerivativeN>2
+    error(['Forcing sign of ' num2str(monotonicDerivativeN+1) ' derivatives. Forcing more than the 3rd order derivative does not converge (although an optimal solution has to exist).'])
 end
-if nargin<4 || isempty(regularizeN) || monotonicDerivativeN==0 
+
+if nargin<4 || isempty(regularizeN) || monotonicDerivativeN==0
     %No regularization allowed if only one derivative is being forced, otherwise we may lose monotonicity
     regularizeN=0;
 end
 
 %% DO THE THING
-    %Remove NaNs:   
+    %Remove NaNs:
     [y2,idx]=removeNaN(y);
 
     %%Optimization
@@ -54,6 +61,7 @@ end
 
     %Now optimize:
     zz=optimize(A,y2,w0,normP);
+    %zz=optimizeAlt(y2,normP,monotonicDerivativeN,initDataGuess,regularizeN);
 
     %Dealing with some ill-conditioned cases, in which a line is better than the solution found:
     if norm(zz-y2,normP)>norm(A*w0-y2,normP)
@@ -61,7 +69,7 @@ end
     end
 
     %Reconstructing data by adding the NaN values that were present
-    z=nan(size(y)); 
+    z=nan(size(y));
     z(~idx)=zz;
 end
 
@@ -73,18 +81,15 @@ function [f,g,h]=cost(y,A,w,p)
 end
 
 function z=defaultDataGuess(y,order)
-%if nargin<2 || order==0
     %First guess (init) for optimization target:
-        x=[0:numel(y)-1]';
-        pp=polyfit(x,y,1); %Fit a line to use as initial estimate: a line is always admissible!
-        if pp(1)<0
-            pp(1)=0;
-            pp(2)=mean(y);
-        end
-        z=pp(2)+pp(1)*x;
-%else
-%    z=monoLS(y,2,order-1,[]);
-%end
+    x=[0:numel(y)-1]';
+    pp=polyfit(x,y,1); %Fit a line to use as initial estimate: a line is always admissible!
+    if pp(1)<0 %Flat line if best line is actually decreasing
+      warning('Trying to fit monotonically increasing function, but data appears to be decreasing.')
+        pp(1)=0
+        pp(2)=mean(y);
+    end
+    z=pp(2)+pp(1)*x;
 end
 
 function [y,idx]=removeNaN(y)
@@ -95,43 +100,27 @@ end
 
 function zz=optimize(A,y,w0,p)
     if p==2
-        %Solver 1: efficient but simple, does not converge for more than 3 derivatives
-        %opts=optimset('Display','off');
-        %w=lsqnonneg(A,y,opts);
-
-        %Alternative solver: (this would allow us to pose the problem in different,
-        %perhaps better conditioned, ways)
-        %opts=optimoptions('quadprog','Display','off','Algorithm','trust-region-reflective');
-        opts=optimoptions('quadprog','Display','off');
-        B=A'*A;C=y'*A;
-        w=quadprog(B,-C,[],[],[],[],zeros(size(w0)),[],w0,opts);
-        
-%         %Impose KKT conditions?: this improves the sol but is very slow,
-%         %and doesnt get all the way to the optimum
-%         d=(w'*B-C)'; %Gradient of the quadratic function with respect to w
-%         %For each element, there are two options (if solution is optimal):
-%         %1) d(i)>0 & w(i)=0, meaning the cost could decrease if w(i) decreases, but w(i) is at its lower bound
-%         %2) d(i)=0 & w(i)>0[meaning optimal value of w(i) in an unconstrained sense]
-%         %Note that w(i)<0 is inadmissible, and d(i)<0 means that w(i)=w(i)+dw is an admissible better solution
-%         iter=0;
-%         tol=1e-9/numel(y);
-%         tol2=1e0*tol;
-%         w(w<tol2)=0;
-%         while any(w>tol2 & abs(d)>tol) && iter<1e5
-%             dd=d.*(w>tol2).*(abs(d)>tol); %Projecting gradient along normal to admissibility set
-%             H=dd'*B*dd /norm(dd)^2;
-%             m=.1*norm(dd)/H;
-%             idx2=w<m*dd;
-%             dd(idx2)=0; %Not moving along directions where we would get w<0
-%             w=w-m*dd;
-%             w(idx2)=.5*w(idx2);
-%            iter=iter+1;
-%         end
+        if A(end,3)<=A(end,2)
+          %This solver is faster for order 0 and 1 (i.e. up to 2nd derivative sign constrained), does not converge for higher order
+          [w,~,~,exitFlag]=lsqnonneg(A,y);
+        else %Alternative solver, slower but better behaved:
+          if ~exist('octave_config_info')
+            opts=optimoptions('quadprog','Display','off');
+          else
+            opts=[];
+          end
+          B=A'*A;C=y'*A;
+          [w,~,exitFlag]=quadprog(B,-C,[],[],[],[],zeros(size(w0)),[],w0,opts);
+          %Note: also does not converge for order 3 and higher
+        end
+        if exitFlag<1
+          warning('Optimization did not converge.')
+        end
         zz=A*w;
     else %Generic solver for other norms, which result in non-quadratic programs (solver is slower, but somewhat better)
         %As of Mar 07 2017, this didn't work properly. Convergence?
         opts=optimoptions('fmincon','Display','off','SpecifyObjectiveGradient',true);
-        w1=fmincon(@(x) cost(y,A,x,p),w0,[],[],[],[],zeros(size(w0)),[],[],opts); 
+        w1=fmincon(@(x) cost(y,A,x,p),w0,[],[],[],[],zeros(size(w0)),[],[],opts);
         zz=A*w1;
     end
 end
@@ -141,16 +130,41 @@ function [A,initSpaceGuess]=getMatrix(dataSize,order,initDataGuess,regularizeN)
     %First, construct matrix that computes data from optimized variables: (By recursion!)
     A=tril(ones(dataSize));
     for i=1:order
-        A(:,i+1:end)=cumsum(A(:,i+1:end),2,'reverse');
+        A(:,i+1:end)=fliplr(cumsum(fliplr(A(:,i+1:end)),2)); %Octave-compatible
     end
-    if regularizeN~=0 %Forcing the value of the m-th derivative (m=monotonicDerivativeFlag+1), 
+    if regularizeN~=0 %Forcing the value of the m-th derivative (m=monotonicDerivativeFlag+1),
        %which is the last constrained one, to be exactly 0 for the last n=regularizeFlag samples.
        %This avoids over-fitting to the first few datapoints (especially the
        %1st). %It is equivalent to reducing the size of the vector w() to be estimated.
-       A(:,end-regularizeN+1:end)=[]; 
+       A(:,end-regularizeN+1:end)=[];
     end
     if nargin>2 && ~isempty(initDataGuess)
         w0=A\initDataGuess;
         initSpaceGuess=w0;
+    end
+end
+
+function zz=optimizeAlt(y,p,order,initDataGuess,regN)
+  %This is an alternative way to pose the problem. It avoids having an ill-conditioned matrix with very large entries when order>1. However, the feasible space becomes more convoluted, so the solver is much slower and does not converge sometimes because of MaxIter. It is good for finding approximately (but not strictly) monotonic solutions
+  N=length(y);
+  C=zeros(N);
+  aux=[-1 1];
+  C(1,1)=1;
+  C(2,1:2)=aux;
+  aux1=aux;
+  m=2;
+  for i=3:N
+    if i<order+3
+      aux1=conv(aux1,aux);
+      m=m+1;
+    end
+    C(i,i-m+1:i)=aux1;
+  end
+    if p==2
+        %Alternative solver:
+        opts=optimoptions('quadprog','Display','off');
+        [zz,~,exitFlag]=quadprog(eye(N),-y',-C,zeros(size(y)),[],[],[],[],initDataGuess,opts);
+    else
+      error('Unimplemented')
     end
 end

@@ -1,20 +1,20 @@
-function [z] = monoLS(y,normP,monotonicDerivativeN,regularizeN,oddSign,evenSign)
+function [z] = monoLS(y,normP,derN,regN,oddSign,evenSign)
 %This function does an p-norm minimization of (z-y), subject to z being monotonic
 %(or constant?). The returned vector z is a 'smoothed' version of y.
-%INPUTS:
+%%%-----------------------INPUT:
 %y: the column vector or matrix to smooth (monoLS acts along dim 1)
 %p: norm used for minimization. Default p=2 (least squares)
-%monotonicDerivativeFlag: order of the derivatives forced to be of constant sign. 
+%derN: order of the derivatives forced to be of constant sign.
 %=0 means monotonic z (no derivatives forces)
 %=1 means monotonic z & monotonic derivative(ie. convex or concave all the way)
 %=2 forces the second derivative to be non-decreasing too, etc.
-%regularizeFlag: number of samples that are force to have a zero value for
+%regN: number of samples that are force to have a zero value for
 %the last derivative forced by monotonicDerivativeFlag. These samples are
 %taken at the end of the z if y is increasing, and at the beginning of z if
 %it is decreasing. It avoids overfit of said samples.
 %oddSign: the sign of the odd derivatives desired (positive=increasing, negative =decreasing, 0= the function will figure it out)
-%evenSign: the sign of the even derivatives desired (positive= concave)
-%OUTPUT:
+%evenSign: the sign of the even derivatives desired (positive= concave, opposite the oddSign = asymptoting function)
+%%%%------------------------OUTPUT:
 %z=Best-fit approximation of data given constraints
 %Notice that a monotonic best-fit is always piece-wise constant (derivative is null almost everywhere) in presence
 %of noise (i.e. if data is not truly monotonic). In the same way, if more
@@ -27,43 +27,55 @@ function [z] = monoLS(y,normP,monotonicDerivativeN,regularizeN,oddSign,evenSign)
 if nargin<2 || isempty(normP)
     normP=[];
 end
-if nargin<3 || isempty(monotonicDerivativeN)
-    monotonicDerivativeN=0;
-elseif monotonicDerivativeN>numel(y)
-    error('Cannot force the sign of so many derivatives!')
+if nargin<3 || isempty(derN) || derN==0
+    derN=0; evenSign=0;
 end
-if nargin<4 || isempty(regularizeN) || monotonicDerivativeN==0 
+if nargin<4 || isempty(regN) || derN==0
     %No regularization allowed if only one derivative is being forced, otherwise we may lose monotonicity
-    regularizeN=[];
+    regN=[];
 end
-if nargin<5 || isempty(oddSign) || oddSign==0
-    %Determine if data is increasing or decreasing through the best 2-norm line fit:
-    %TODO: fit both increasing and decreasing functions, see which one is better
-    %pp=polyfit([1:numel(y)]',y,1);
-    %forceSign=sign(pp(1));
-    oddSign=sign(nanmean(diff(y))); %Alternative determination of increasing/decreasing
-    %s=sign(median(diff(y)));
-end
-if nargin<6 || isempty(evenSign) || evenSign==0
-    evenSign=-oddSign; %this forces asymptotic-like behavior as default (i.e. decaying exponentials rather exploding ones)
-end
-if monotonicDerivativeN==0 %Regardless of everything else: no evenSign if no higher order derivatives are constrained in sign
-    evenSign=0;
-end
-
-%%
 if numel(y)~=length(y) %More than 1 vector (matrix input, acting along columns)
     z=nan(size(y));
     for i=1:size(y,2)
-        z(:,i)=monoLS(y(:,i),normP,monotonicDerivativeN,regularizeN);
+        z(:,i)=monoLS(y(:,i),normP,derN,regN);
     end
 else %Vector input-data
-    [y,a,s,f]=flipIfNeeded(y,oddSign,evenSign);
+    y=reshape(y,length(y),1); %Column-vector
+    if nargin<5 || isempty(oddSign) || oddSign==0
+        %Determine if data is increasing or decreasing through corr sign:
+        n=length(y);
+        x=[0:n-1]';
+        oddSign=sign(mean(x.*y(:))-((n-1)/2)*mean(y));
+        %ALT: fit both possible signs and return the best:
+        %if nargin<6 || isempty(evenSign) || evenSign==0
+        %    evenSign=0;
+        %end
+        %[z1] = monoLS(y,normP,monotonicderN,regN,1,evenSign);
+        %[z2] = monoLS(y,normP,monotonicderN,regN,-1,evenSign);
+        %if sum((z1-y).^2)<sum((z2-y).^2)
+        %  z=z1;
+        %else
+        %  z=z2;
+        %end
+        %return
+    end
+    if nargin<6 || isempty(evenSign) || evenSign==0
+        %this forces asymptotic-like behavior as default (i.e. decaying exponentials rather exploding ones)
+        evenSign=-oddSign;
+        %ALT: try both signs, choose the better-fitting one.
+        %[z1] = monoLS(y,normP,monotonicderN,regN,oddSign,1);
+        %[z2] = monoLS(y,normP,monotonicderN,regN,oddSign,-1);
+        %if sum((z1-y).^2)<sum((z2-y).^2)
+        %  z=z1;
+        %else
+        %  z=z2;
+        %end
+        %return
+    end
 
-    [z] = incLS(y,normP,monotonicDerivativeN,regularizeN);
-
-    %Invert the flipping and positivization
-    [z]=unflip(z,s,a,f);
+    [y,a,s,f]=flipIfNeeded(y,oddSign,evenSign); %Flip to fit a concave increasing function
+    [z] = incLS(y,normP,derN,regN); %Find actual solution
+    [z]=unflip(z,s,a,f); %Flip back
 end
 
 end
@@ -96,5 +108,5 @@ function [z]=unflip(y,s,a,f)
     end
     if f==1
         z=flipud(z);
-    end 
+    end
 end
