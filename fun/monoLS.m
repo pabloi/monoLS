@@ -1,26 +1,29 @@
 function [z] = monoLS(y,normP,derN,regN,oddSign,evenSign)
-%This function does an p-norm minimization of (z-y), subject to z being monotonic
-%(or constant?). The returned vector z is a 'smoothed' version of y.
+%This function does an p-norm minimization of (z-y), subject to z 
+%(and optionally some of its derivatives, such as z',z'', etc.) being monotonic.
+%The returned vector z is a non-parametrically smoothed version of y. 
+%This function is a wrapper around incLS, which does all the numeric heavylifting.
 %%%-----------------------INPUT:
 %y: the column vector or matrix to smooth (monoLS acts along dim 1)
 %p: norm used for minimization. Default p=2 (least squares)
 %derN: order of the derivatives forced to be of constant sign.
-%=0 means monotonic z (no derivatives forces)
-%=1 means monotonic z & monotonic derivative(ie. convex or concave all the way)
+%=0 means monotonic z
+%=1 means monotonic z & monotonic first derivative (i.e. convex or concave function fitting)
 %=2 forces the second derivative to be non-decreasing too, etc.
 %regN: number of samples that are force to have a zero value for
 %the last derivative forced by monotonicDerivativeFlag. These samples are
 %taken at the end of the z if y is increasing, and at the beginning of z if
 %it is decreasing. It avoids overfit of said samples.
 %oddSign: the sign of the odd derivatives desired (positive=increasing, negative =decreasing, 0= the function will figure it out)
-%evenSign: the sign of the even derivatives desired (positive= concave, opposite the oddSign = asymptoting function)
+%evenSign: the sign of the even derivatives desired (positive= concave, opposite the oddSign = asymptoting function) %TODO: this sign should be given relative to the other one.
 %%%%------------------------OUTPUT:
 %z=Best-fit approximation of data given constraints
 %Notice that a monotonic best-fit is always piece-wise constant (derivative is null almost everywhere) in presence
-%of noise (i.e. if data is not truly monotonic). In the same way, if more
+%of noise (i.e. if data is not truly monotonic). In the same way, if the sign of further
 %derivatives are enforced, the last enforced one will be piece-wise
 %constant, so one order less will be piece-wise linear, two orders less
 %will be piece-wise quadratic and so forth.
+%See also: incLS
 
 
 %% ARGUMENT CHECK:
@@ -61,7 +64,7 @@ else %Vector input-data
     end
     if nargin<6 || isempty(evenSign) || evenSign==0
         %this forces asymptotic-like behavior as default (i.e. decaying exponentials rather exploding ones)
-        evenSign=-oddSign;
+        evenSign=-1;
         %ALT: try both signs, choose the better-fitting one.
         %[z1] = monoLS(y,normP,monotonicderN,regN,oddSign,1);
         %[z2] = monoLS(y,normP,monotonicderN,regN,oddSign,-1);
@@ -73,7 +76,7 @@ else %Vector input-data
         %return
     end
 
-    [y,a,s,f]=flipIfNeeded(y,oddSign,evenSign); %Flip to fit a concave increasing function
+    [y,a,s,f]=flipIfNeeded(y,oddSign,evenSign*oddSign); %Flip to fit a concave increasing function
     [z] = incLS(y,normP,derN,regN); %Find actual solution
     [z]=unflip(z,s,a,f); %Flip back
 end
