@@ -11,7 +11,7 @@ This is done by flipping as needed the y-axis (which flips the sign of all the d
 
 The problem of finding a solution to the best-fitting function with non-negative first N derivatives can be framed as a p-norm minimization problem on a convex (non-negative) set. It can be shown that this is a convex problem, and thus can be . For the special case of the 2-norm, this is a non-negative least-squares problem. In general, the problem can be cast as:
 
-$$min_w || Aw - y ||_p \, \, \text{s.t.} \, \, w_i \geq 0, \,\, \forall i$$
+$$\text{min}_{\lbrace w_i \rbrace} || Aw - y ||_p \, \, \text{s.t.} \, \, w_i \geq 0, \,\, \forall i$$
 
 Where `A` is a triangular matrix, `z=Aw` are the smoothed values we are searching for, and most of the `w_i` represent the n-th order differentials (i.e. the value of the n-th derivative at the sampling points).
 
@@ -24,7 +24,7 @@ Currently, `monoLS` is able to enforce non-negativity (or non-positivity) up to 
 
 **Octave:** optim, struct, statistics, and io packages required.
 
-For both, the monoLS folder needs to be added to the path.
+For both, the monoLS folder and subfolders need to be added to the path.
 
 ## Code structure:
 The code contains two folders: `fun` and `examples`.  
