@@ -76,8 +76,10 @@ def solve_canonical(x, y, w, k, *, excluded_tail=0, tol=1e-10, max_iter=None):
             blocking = min(ratios, key=ratios.get)
             coef[P] = current + ratios[blocking] * (u - current)
             coef[P[blocking]] = 0.0  # exact zero: rounding can leave ~1e-16 and cycle forever
-            floor = 1e-14 * np.max(np.abs(coef[P[1:]]), initial=0.0)
-            keep = [P[0]] + [q for q in P[1:] if coef[q] > floor]
+            # compare contributions coef*||column||: coefficients themselves span many decades
+            contrib = {q: coef[q] * unit_column(q)[1] for q in P[1:]}
+            floor = 1e-14 * max(map(abs, contrib.values()), default=0.0)
+            keep = [P[0]] + [q for q in P[1:] if contrib[q] > floor]
             for q in set(P) - set(keep):
                 coef[q] = 0.0
             P = keep
