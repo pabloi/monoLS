@@ -88,8 +88,11 @@ difference is zero on the last b stencils.
 **L1 loss**: IRLS over the original (unmerged) valid samples. ε₀ = 1e-3·MAD(y) (if MAD = 0, use
 1e-3·max(|y − median(y)|), and if that is 0 too, return the median). Iterate: per-sample weights
 w_i / max(|r_i|, ε), then merge ties (§2.2) and run the L2 solver. Set ε ← max(ε/2, 1e-7·scale), where
-scale = max(|y − median(y)|). Stop when the relative change in Σ w_i|r_i| is < 1e-8, or after 50
-iterations, and return the iterate with the lowest Σ w_i|r_i|. The initial r comes from the L2 fit.
+scale = max(|y − median(y)|). Stop when the change in Σ w_i|r_i| is ≤ 1e-8·Σ w_i|r_i| + 1e-15·scale·Σw_i,
+or after 50 iterations, and return the iterate with the lowest Σ w_i|r_i|.
+**The L1 solution is approximate.** IRLS converges only linearly, and on some problems it stops
+several tenths of a percent above the optimal L1 loss. For L1, `converged` means the iterations
+settled (and the inner L2 solves converged); it does not certify L1 optimality. The initial r comes from the L2 fit.
 (A lower ε floor makes the weights span ~1e9 and IRLS stalls above the optimum.)
 
 ## 6. Output

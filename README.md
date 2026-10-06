@@ -49,7 +49,7 @@ yq = monols.predict(F, xq);
 | `order` | 0, 1, 2, … | 0 |
 | `direction` | `increasing`, `decreasing`, `auto` (best fit) | `auto` |
 | `curvature` | `saturating` (levels off, like decaying exponentials), `accelerating`, `auto` | `saturating` |
-| `loss` | `l2` (least squares), `l1` (robust to outliers) | `l2` |
+| `loss` | `l2` (least squares, exact), `l1` (robust to outliers; approximate, solved by IRLS and typically within a fraction of a percent of the optimal L1 loss) | `l2` |
 | `weights` | positive per-sample weights | all 1 |
 | `boundary` | number of samples at the steep end where the highest-order difference is held at 0 (reduces boundary over-fitting) | 0 |
 
