@@ -143,3 +143,9 @@ def test_predict_accepts_scalars_and_keeps_shape(order):
     assert np.ndim(f.predict(5.0)) == 0
     assert float(f.predict(1.0)) == pytest.approx(2.0)
     assert f.predict(np.zeros((2, 3))).shape == (2, 3)
+
+
+@pytest.mark.parametrize("order", [0, 1])
+def test_l1_exact_fit_reports_converged(order):
+    f = monols.fit(np.arange(5.0), order=order, direction="increasing", loss="l1")
+    assert f.loss_value == pytest.approx(0.0, abs=1e-12) and f.converged

@@ -92,5 +92,9 @@ for s = [1 1e-9 1e-12] %automatic shape selection must not depend on the units o
     F1 = monols.fit(ys, 'order', 1, 'curvature', 'auto');
     assert(strcmp(F0.direction, 'decreasing') && strcmp(F1.direction, 'decreasing'), 'scale-dependent auto');
 end
+for order = 0:1 %L1 on data already in the cone: zero loss, converged
+    F = monols.fit((0:4)', 'order', order, 'direction', 'increasing', 'loss', 'l1');
+    assert(abs(F.lossValue) < 1e-12 && F.converged, 'L1 exact fit not converged');
+end
 disp('testFit: PASS')
 end
