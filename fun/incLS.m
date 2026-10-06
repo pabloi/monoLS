@@ -39,8 +39,6 @@ if nargin<3 || isempty(monotonicDerivativeN)
     monotonicDerivativeN=0;
 elseif monotonicDerivativeN>numel(y)
     error(['Cannot force the sign of ' num2str(monotonicDerivativeN) ' derivatives with only ' num2str(numel(y)) ' datapoints!'])
-elseif monotonicDerivativeN>2
-    error(['Forcing sign of ' num2str(monotonicDerivativeN+1) ' derivatives. Forcing more than the 3rd order derivative does not converge (although an optimal solution has to exist).'])
 end
 
 if nargin<4 || isempty(regularizeN) || monotonicDerivativeN==0
