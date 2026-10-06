@@ -24,7 +24,8 @@ def solve_l1(prep, order, direction, curvature, boundary, tol, max_iter):
         res = _solve_shape(prep, yu, wu, order, direction, curvature, boundary, tol, max_iter)
         r = res[0][inv] - yv
         new_obj = wv @ np.abs(r)
-        done = abs(obj - new_obj) < 1e-8 * obj
+        # relative stall test, plus an absolute floor so an exact fit (obj = 0) counts as done
+        done = abs(obj - new_obj) <= 1e-8 * obj + 1e-15 * scale * wv.sum()
         obj = new_obj
         if obj < best[0]:
             best = (obj, res)

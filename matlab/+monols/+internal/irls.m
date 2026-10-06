@@ -18,7 +18,8 @@ for it = 1:50
     R = monols.internal.solveShape(P, yu, wu, order, direction, curvature, boundary, tol, maxIter);
     r = R.zu(inv) - yv;
     newObj = wv' * abs(r);
-    done = abs(obj - newObj) < 1e-8 * obj;
+    %relative stall test, plus an absolute floor so an exact fit (obj = 0) counts as done
+    done = abs(obj - newObj) <= 1e-8 * obj + 1e-15 * scale * sum(wv);
     obj = newObj;
     if obj < bestObj
         best = R; bestObj = obj;
