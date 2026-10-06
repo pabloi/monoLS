@@ -96,6 +96,9 @@ iterations. The initial r comes from the L2 fit.
 Undo the x reversal and the y negation, assign each merged group's value to its samples, and put NaN at
 the dropped samples. `loss_value` is Σ w_i (z_i − y_i)² (l2) or Σ w_i |z_i − y_i| (l1) over valid samples.
 
+With no valid samples, the output is all NaN, `loss_value` = 0, and direction/curvature are
+returned as requested.
+
 **Auto choices**: candidates in the order (increasing, saturating), (increasing, accelerating),
 (decreasing, saturating), (decreasing, accelerating), restricted to the requested ones (for k = 0,
 direction only). Pick the lowest `loss_value`. Values within a relative 1e-9 of the minimum count as ties, and the
