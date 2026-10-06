@@ -11,9 +11,9 @@ rand('seed', 3); randn('seed', 3); %#ok<RAND>
 n = 60; x = linspace(0, 1, n)'; y = 2*x + randn(n, 1); w = 0.2 + rand(n, 1);
 z = monols.internal.pava(y, w);
 assert(all(diff(z) >= 0), 'not monotone');
-% KKT for weighted isotonic regression: cumulative weighted residuals from the right are >= 0
-% and are 0 at block boundaries
+% KKT for weighted isotonic regression: suffix sums of weighted residuals are <= 0, and the
+% total is 0 (e.g. y = [3 1] gives z = [2 2] and suffix sum 1 - 2 = -1)
 c = flipud(cumsum(flipud(w .* (y - z))));
-assert(min(c) > -1e-10 && abs(c(1)) < 1e-10, 'KKT violated');
+assert(max(c) < 1e-10 && abs(c(1)) < 1e-10, 'KKT violated');
 disp('testPava: PASS')
 end
