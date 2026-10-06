@@ -72,9 +72,12 @@ def solve_canonical(x, y, w, k, *, excluded_tail=0, tol=1e-10, max_iter=None):
             if not bad:
                 coef[P] = u
                 break
-            alpha = min(current[i] / (current[i] - u[i]) for i in bad)
-            coef[P] = current + alpha * (u - current)
-            keep = [P[0]] + [q for q in P[1:] if coef[q] > 0]
+            ratios = {i: current[i] / (current[i] - u[i]) for i in bad}
+            blocking = min(ratios, key=ratios.get)
+            coef[P] = current + ratios[blocking] * (u - current)
+            coef[P[blocking]] = 0.0  # exact zero: rounding can leave ~1e-16 and cycle forever
+            floor = 1e-14 * np.max(np.abs(coef[P[1:]]), initial=0.0)
+            keep = [P[0]] + [q for q in P[1:] if coef[q] > floor]
             for q in set(P) - set(keep):
                 coef[q] = 0.0
             P = keep

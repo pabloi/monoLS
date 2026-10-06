@@ -58,3 +58,29 @@ def test_large_n_is_fast_and_does_not_need_dense_matrix():
     sol = solve_canonical(x, y, w, 2)
     assert time.perf_counter() - t < 10
     assert sol.converged
+
+
+def test_blocking_coefficient_left_at_rounding_level_does_not_cycle():
+    """Regression: the step to the blocking coefficient can leave ~1e-16 instead of 0."""
+    import json
+    import signal
+    from pathlib import Path
+
+    if not hasattr(signal, "SIGALRM"):
+        pytest.skip("needs SIGALRM")
+    case = {c["name"]: c for c in json.loads(
+        (Path(__file__).parents[2] / "tests" / "fixtures" / "cases.json").read_text())}["even_order3"]
+    y = -np.array(case["y"], dtype=float)[::-1]  # canonical form of increasing/saturating
+    x = 1.0 - (np.arange(y.size, dtype=float) / (y.size - 1))[::-1]  # exactly as fit() builds it
+
+    def timeout(*_):
+        raise TimeoutError("solver did not terminate")
+
+    old = signal.signal(signal.SIGALRM, timeout)
+    signal.alarm(20)
+    try:
+        sol = solve_canonical(x, y, np.ones(y.size), 3)
+    finally:
+        signal.alarm(0)
+        signal.signal(signal.SIGALRM, old)
+    assert sol.converged
