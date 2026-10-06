@@ -24,7 +24,7 @@ def solve_canonical(x, y, w, k, *, excluded_tail=0, tol=1e-10, max_iter=None):
     coef = np.zeros(N)
     coef[0] = ybar
     sigma = np.sqrt(w @ (y - ybar) ** 2)
-    if sigma == 0:
+    if sigma <= 1e-13 * np.max(np.abs(y)) * np.sqrt(w.sum()):  # constant up to rounding
         return Solution(np.full(N, ybar), coef, np.array([0]), True, 0.0, 0)
 
     allowed = np.ones(N, dtype=bool)

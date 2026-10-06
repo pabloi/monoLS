@@ -60,7 +60,7 @@ Then g[d] = u^{(K)}.
 - s_m column: the Newton polynomial Π_{l<m}(x_i − x_l);
 - d_j column: (x_{j+K} − x_j) · Π_{l=j+1}^{j+k}(x_i − x_l) for i ≥ j+K, and 0 otherwise.
 
-**Knot location** of d_j: the mean of x_j … x_{j+K} in canonical coordinates, mapped back to original x.
+**Knots** are the d_j with d_j > 1e-9·max(d) (smaller values are rounding noise). The **location** of d_j is the mean of x_j … x_{j+K} in canonical coordinates, mapped back to original x.
 
 **boundary = b**: drop the last b knot coefficients (d_j with j ≥ N−K−b), so the (k+1)-th divided
 difference is zero on the last b stencils.
@@ -71,7 +71,7 @@ difference is zero on the last b stencils.
 
 **k ≥ 1, or boundary > 0**: Lawson–Hanson NNLS over A with these specifics:
 - The objective is Σ v_i (z_i − ȳ_i)²; W = diag(v).
-- Scale σ = sqrt(Σ v_i (ȳ_i − ȳ_w)²) with ȳ_w the weighted mean. If σ = 0, return z = ȳ_w (converged).
+- Scale σ = sqrt(Σ v_i (ȳ_i − ȳ_w)²) with ȳ_w the weighted mean. If σ ≤ 1e-13·max|ȳ|·sqrt(Σv) (constant data up to rounding), return z = ȳ_w (converged).
 - Column scales p: exact weighted norms ‖√v ⊙ a‖ for the s columns. For d_j:
   |A[N−1, d_j]| · sqrt(Σ_{i ≥ j+K} v_i / (2k+1)), where row N−1 of A is adjoint(e_{N−1}).
 - Start with the active set P = {s_0} and z = ȳ_w.
