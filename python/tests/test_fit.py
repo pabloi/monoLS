@@ -99,3 +99,17 @@ def test_matrix_input_is_fit_column_by_column():
 def test_invalid_options_raise(bad):
     with pytest.raises(ValueError):
         monols.fit(np.arange(5.0), **bad)
+
+
+@pytest.mark.parametrize("order,b", [(0, 3), (1, 2), (2, 4)])
+def test_boundary_zeroes_the_last_highest_order_differences(order, b):
+    x = np.linspace(0, 1, 40)
+    y = np.exp(3 * x) + np.random.default_rng(order).normal(0, 0.3, 40)  # canonical: steep at the end
+    y[-1] += 3  # end spike, so the unconstrained fit has a knot near the boundary
+    z = monols.fit(y, x, order=order, direction="increasing", curvature="accelerating", boundary=b).fitted
+    d = z
+    for q in range(1, order + 2):
+        d = (d[1:] - d[:-1]) / (x[q:] - x[:-q])
+    np.testing.assert_allclose(d[-b:], 0, atol=1e-8 * np.abs(d).max())
+    free = monols.fit(y, x, order=order, direction="increasing", curvature="accelerating").fitted
+    assert not np.allclose(z, free)  # the option actually changed the fit

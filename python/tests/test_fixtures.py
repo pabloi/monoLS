@@ -7,7 +7,7 @@ import pytest
 import monols
 
 CASES = json.loads((Path(__file__).parents[2] / "tests" / "fixtures" / "cases.json").read_text())
-SUPPORTED = lambda c: c["options"]["loss"] == "l2" and c["options"]["boundary"] == 0  # noqa: E731
+SUPPORTED = lambda c: c["options"]["loss"] == "l2"  # noqa: E731
 
 
 def arr(v):
