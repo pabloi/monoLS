@@ -98,7 +98,8 @@ the dropped samples. `loss_value` is Σ w_i (z_i − y_i)² (l2) or Σ w_i |z_i 
 
 **Auto choices**: candidates in the order (increasing, saturating), (increasing, accelerating),
 (decreasing, saturating), (decreasing, accelerating), restricted to the requested ones (for k = 0,
-direction only). Pick the lowest `loss_value`; on a tie, keep the first.
+direction only). Pick the lowest `loss_value`. Values within a relative 1e-9 of the minimum count as ties, and the
+first tied candidate wins (this keeps both implementations deterministic).
 
 **predict(x_new)**: linear interpolation over (unique x, fitted values). Outside the data range: constant
 for k = 0; for k ≥ 1, extend the end segment linearly (a single sample gives a constant).
