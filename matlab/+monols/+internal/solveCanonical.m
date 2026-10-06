@@ -52,8 +52,11 @@ while nIter < maxIter
         [alpha, ib] = min(cur(bad) ./ (cur(bad) - u(bad)));
         coef(P) = cur + alpha * (u - cur);
         coef(P(bad(ib))) = 0; %exact zero: rounding can leave ~1e-16 and cycle forever
-        floorValue = 1e-14 * max(abs(coef(P(2:end))));
-        keep = [true; coef(P(2:end)) > floorValue];
+        %compare contributions coef*||column||: coefficients themselves span many decades
+        [~, loc] = ismember(P(2:end), colIdx);
+        contrib = coef(P(2:end)) .* colNorms(loc)';
+        floorValue = 1e-14 * max([abs(contrib); 0]);
+        keep = [true; contrib > floorValue];
         coef(P(~keep)) = 0;
         P = P(keep);
     end
