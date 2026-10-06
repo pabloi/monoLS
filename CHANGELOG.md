@@ -15,9 +15,9 @@
   Order 0 uses PAVA. n = 100,000 fits take about 0.1–4 s; v1 needed an 80 GB matrix at that size.
 
 ### Fixed (in v1 before the rewrite, then carried over)
-- Orders ≥ 2 failed on Octave and converged poorly in MATLAB: the `quadprog` branch formed A'A,
-  squaring an already huge condition number. All orders now use column-normalized NNLS, and the
-  order ≤ 3 limit is gone.
+- Orders ≥ 2 failed on Octave (the `quadprog`/`optimoptions` branch), and order ≥ 3 was refused
+  because `quadprog` on A'A (which squares an already huge condition number) did not converge. All
+  orders now use column-normalized NNLS, and the order limit is gone.
 - Matrix input ignored `oddSign`/`evenSign`.
 - Automatic direction detection picked a decreasing fit when the data contained NaN.
 
