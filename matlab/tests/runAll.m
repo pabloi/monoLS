@@ -7,9 +7,6 @@ failed = {};
 ran = 0;
 for i = 1:numel(files)
     name = files(i).name(1:end-2);
-    if strncmp(name, 'testLegacy', 10)
-        continue %legacy tests need the legacy code on the path; run them separately
-    end
     ran = ran + 1;
     try
         feval(name);
