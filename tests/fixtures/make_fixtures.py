@@ -134,7 +134,7 @@ def reference_fit(y, x, w, order, direction, curvature, loss, boundary):
                 assert dd.min() >= -1e-7 * max(1.0, np.abs(dd).max()), "fit outside the cone"
         r = zu[inv] - yall[valid]
         lv = float(np.sum(wall[valid] * r ** 2) if loss == "l2" else np.sum(wall[valid] * np.abs(r)))
-        if best is None or lv < best[0] * (1 - 1e-9) - 1e-15:
+        if best is None or lv < best[0] * (1 - 1e-9):
             best = (lv, zu, d, c)
     lv, zu, d, c = best
     fitted[valid] = zu[inv]

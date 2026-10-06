@@ -132,7 +132,7 @@ def fit(y, x=None, *, order=0, direction="auto", curvature="saturating", loss="l
             continue
         res = solver(prep, d, c) if loss == "l2" else solver(prep, order, d, c, boundary, tol, max_iter)
         lv = _loss(prep, res[0], loss)
-        if best is None or lv < best[0] * (1 - 1e-9) - 1e-15:
+        if best is None or lv < best[0] * (1 - 1e-9):
             best = (lv, d, c, res)
     lv, d, c, (zu, coef, knots, converged, kkt, n_iter) = best
     fitted = np.full(y.size, np.nan)

@@ -67,7 +67,7 @@ for d = {'increasing', 'decreasing'}
         r = R.zu(P.inverse) - P.y(P.valid);
         wv = P.w(P.valid);
         if strcmp(o.loss, 'l2'), lv = wv' * r.^2; else, lv = wv' * abs(r); end
-        if isempty(best) || lv < best.lv * (1 - 1e-9) - 1e-15
+        if isempty(best) || lv < best.lv * (1 - 1e-9)
             best = struct('lv', lv, 'd', d{1}, 'c', c{1}, 'R', R);
         end
     end
