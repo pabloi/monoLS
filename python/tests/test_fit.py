@@ -113,3 +113,17 @@ def test_boundary_zeroes_the_last_highest_order_differences(order, b):
     np.testing.assert_allclose(d[-b:], 0, atol=1e-8 * np.abs(d).max())
     free = monols.fit(y, x, order=order, direction="increasing", curvature="accelerating").fitted
     assert not np.allclose(z, free)  # the option actually changed the fit
+
+
+@pytest.mark.parametrize("order", [0, 1])
+def test_l1_is_robust_to_a_gross_outlier(order):
+    x = np.linspace(0, 1, 50)
+    clean = np.log1p(5 * x) + np.random.default_rng(5).normal(0, 0.05, 50)
+    dirty = clean.copy()
+    dirty[25] += 10
+    shift = {}
+    for loss in ("l2", "l1"):
+        a = monols.fit(clean, x, order=order, direction="increasing", loss=loss).fitted
+        b = monols.fit(dirty, x, order=order, direction="increasing", loss=loss).fitted
+        shift[loss] = np.abs(a - b).max()
+    assert shift["l1"] < 0.2 * shift["l2"]
