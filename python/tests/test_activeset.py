@@ -84,3 +84,16 @@ def test_blocking_coefficient_left_at_rounding_level_does_not_cycle():
         signal.alarm(0)
         signal.signal(signal.SIGALRM, old)
     assert sol.converged
+
+
+def test_drop_floor_respects_column_scales():
+    """Regression: a floor relative to max(coef) dropped valid coefficients whose columns are
+    tiny (coefficients spanned 1e-1..1e15 at n=1e5, order 3), so the objective went up and
+    the solver cycled without converging."""
+    n = 100_000
+    rng = np.random.default_rng(0)
+    rng.normal(0, 0.1, 10_000)
+    x = np.linspace(0, 1, n)
+    y = 1 - np.exp(-5 * x) + rng.normal(0, 0.1, n)
+    sol = solve_canonical(1 - x[::-1], -y[::-1], np.ones(n), 3, max_iter=300)
+    assert sol.converged
