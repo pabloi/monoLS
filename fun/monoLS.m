@@ -52,9 +52,10 @@ else %Vector input-data
     y=reshape(y,length(y),1); %Column-vector
     if nargin<5 || isempty(oddSign) || oddSign==0
         %Determine if data is increasing or decreasing through corr sign:
-        n=length(y);
-        x=[0:n-1]';
-        oddSign=sign(mean(x.*y(:))-((n-1)/2)*mean(y));
+        x=[0:length(y)-1]';
+        ok=~isnan(y); %ignore missing samples, keeping their true positions
+        xo=x(ok); yo=y(ok);
+        oddSign=sign(mean(xo.*yo)-mean(xo)*mean(yo));
         %ALT: fit both possible signs and return the best:
         %if nargin<6 || isempty(evenSign) || evenSign==0
         %    evenSign=0;
