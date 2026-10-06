@@ -100,19 +100,11 @@ end
 
 function zz=optimize(A,y,w0,p)
     if p==2
-        if A(end,3)<=A(end,2)
-          %This solver is faster for order 0 and 1 (i.e. up to 2nd derivative sign constrained), does not converge for higher order
-          [w,~,~,exitFlag]=lsqnonneg(A,y);
-        else %Alternative solver, slower but better behaved:
-          if ~exist('octave_config_info')
-            opts=optimoptions('quadprog','Display','off');
-          else
-            opts=[];
-          end
-          B=A'*A;C=y'*A;
-          [w,~,exitFlag]=quadprog(B,-C,[],[],[],[],zeros(size(w0)),[],w0,opts);
-          %Note: also does not converge for order 3 and higher
-        end
+        %Normalizing columns keeps lsqnonneg's tolerance meaningful for all orders
+        %(column norms grow like n^order otherwise)
+        s=sqrt(sum(A.^2,1));
+        [w,~,~,exitFlag]=lsqnonneg(A./s,y);
+        w=w./s';
         if exitFlag<1
           warning('Optimization did not converge.')
         end
