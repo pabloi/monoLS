@@ -8,13 +8,13 @@ if scale == 0
     return
 end
 mad = median(abs(yv - med));
-if mad > 0, eps = 1e-3 * mad; else, eps = 1e-3 * scale; end
+if mad > 0, epsilon = 1e-3 * mad; else, epsilon = 1e-3 * scale; end
 r = R.zu(inv) - yv;
 obj = wv' * abs(r);
 best = R; bestObj = obj;
 irlsConverged = false;
 for it = 1:50
-    [yu, wu] = monols.internal.merge(yv, wv ./ max(abs(r), eps), inv, m);
+    [yu, wu] = monols.internal.merge(yv, wv ./ max(abs(r), epsilon), inv, m);
     R = monols.internal.solveShape(P, yu, wu, order, direction, curvature, boundary, tol, maxIter);
     r = R.zu(inv) - yv;
     newObj = wv' * abs(r);
@@ -23,7 +23,7 @@ for it = 1:50
     if obj < bestObj
         best = R; bestObj = obj;
     end
-    eps = max(eps / 2, 1e-7 * scale); %a lower floor makes IRLS stall above the optimum
+    epsilon = max(epsilon / 2, 1e-7 * scale); %a lower floor makes IRLS stall above the optimum
     if done
         irlsConverged = true;
         break
