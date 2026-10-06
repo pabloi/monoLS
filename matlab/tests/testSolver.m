@@ -28,6 +28,12 @@ assert(S.converged, 'cycling case did not converge');
 t = tic;
 S = monols.internal.solveCanonical(x, y, w, 2, 0, 1e-10, []);
 assert(toc(t) < 30 && S.converged, 'large n too slow or not converged');
+%Regression: a drop floor relative to max(coef) zeroed valid coefficients of tiny columns
+%(coefficients spanned 1e-1..1e15 at n = 1e5, order 3) and the solver cycled
+n = 100000; randn('seed', 1); %#ok<RAND>
+x = linspace(0, 1, n)'; y = 1 - exp(-5*x) + 0.1*randn(n, 1);
+S = monols.internal.solveCanonical(1 - flipud(x), -flipud(y), ones(n, 1), 3, 0, 1e-10, 300);
+assert(S.converged, 'n = 1e5, order 3 did not converge');
 disp('testSolver: PASS')
 end
 
