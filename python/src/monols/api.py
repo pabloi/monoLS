@@ -32,15 +32,17 @@ class MonoFit:
 
     def predict(self, x_new):
         x_new = np.asarray(x_new, dtype=float)
+        shape = x_new.shape
+        x_new = x_new.ravel()
         xu, zu = self._xu, self._zu
         if xu is None or xu.size == 0:
-            return np.full(x_new.shape, np.nan)
+            return np.full(shape, np.nan)[()]
         out = np.interp(x_new, xu, zu)
         if self.order >= 1 and xu.size >= 2:
             lo, hi = x_new < xu[0], x_new > xu[-1]
             out[lo] = zu[0] + (x_new[lo] - xu[0]) * (zu[1] - zu[0]) / (xu[1] - xu[0])
             out[hi] = zu[-1] + (x_new[hi] - xu[-1]) * (zu[-1] - zu[-2]) / (xu[-1] - xu[-2])
-        return out
+        return out.reshape(shape)[()]
 
 
 def _canonical_flags(direction, curvature, order):
