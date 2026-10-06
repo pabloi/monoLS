@@ -12,7 +12,8 @@
 
 ### Faster
 - No n×n matrix: Aᵀr is computed with cumulative sums in O(n·k), and only active columns are built.
-  Order 0 uses PAVA. n = 100,000 fits take about 0.1–4 s; v1 needed an 80 GB matrix at that size.
+  Order 0 uses PAVA. Noisy n = 100,000 fits take about 0.1–4 s (v1 needed an 80 GB matrix at
+  that size). Time grows with the number of knots, so nearly noise-free data at large n is slower.
 
 ### Fixed (in v1 before the rewrite, then carried over)
 - Orders ≥ 2 failed on Octave (the `quadprog`/`optimoptions` branch), and order ≥ 3 was refused

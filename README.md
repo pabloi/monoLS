@@ -64,8 +64,8 @@ wrapper around `monols.fit`. Only `normP` = 1 or 2 is supported. See [CHANGELOG]
 The v1 idea is kept: fitted values are z = A·w with w ≥ 0, so the fit is a non-negative least
 squares (NNLS) problem. The columns of A are the start value, slope, …, and the "knots" of the
 (k+1)-th divided difference. v2 builds A for any x spacing and **never forms it**: Aᵀr is computed
-with k+1 cumulative sums in O(n·k), and only the columns in the solution (typically 5–50) are ever
-built. Order 0 uses the pool-adjacent-violators algorithm (PAVA). Higher orders use a structured
+with k+1 cumulative sums in O(n·k), and only columns that enter the solution are built. Each
+iteration costs O(n·|P|²), where |P| is the number of knots, so run time grows with the number of knots. Order 0 uses the pool-adjacent-violators algorithm (PAVA). Higher orders use a structured
 Lawson–Hanson active-set method, and L1 uses iteratively reweighted least squares. Details:
 [spec/ALGORITHM.md](spec/ALGORITHM.md).
 
@@ -81,6 +81,19 @@ Time to fit n samples of a noisy saturating curve (Apple M5 Pro, single thread):
 | **Octave 11** 1,000 | 0.019 s | 0.024 s | 0.023 s | 0.016 s |
 | 10,000 | 0.115 s | 0.353 s | 0.157 s | 0.123 s |
 | 100,000 | 1.23 s | 3.72 s | 1.53 s | 0.95 s |
+
+Cost grows with the number of knots. Nearly noise-free data needs many knots, especially at
+order 1 (time [knots], noise sd 1e-3):
+
+| n | order 1 | order 2 | order 3 |
+|---|---|---|---|
+| **Python** 10,000 | 2.83 s [97] | 0.25 s [32] | 0.09 s [16] |
+| 30,000 | 12.3 s [116] | 0.76 s [35] | 0.25 s [17] |
+| **Octave 11** 10,000 | 4.08 s [93] | 0.58 s [30] | 0.19 s [14] |
+| 30,000 | 12.1 s [111] | 1.42 s [36] | 0.57 s [13] |
+
+Many-knot fits at n ≈ 10⁵ can take minutes. Incremental QR updates in the active-set loop are the
+planned remedy.
 
 For comparison, v1 (dense n×n matrix with `lsqnonneg`) took 0.73 s for order 0 at n = 3,000 in
 Octave. At n = 100,000 its matrix alone would need 80 GB. Reproduce with `benchmarks/bench.py`
