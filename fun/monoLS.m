@@ -37,10 +37,16 @@ if nargin<4 || isempty(regN) || derN==0
     %No regularization allowed if only one derivative is being forced, otherwise we may lose monotonicity
     regN=[];
 end
+if nargin<5
+    oddSign=[];
+end
+if nargin<6
+    evenSign=[];
+end
 if numel(y)~=length(y) %More than 1 vector (matrix input, acting along columns)
     z=nan(size(y));
     for i=1:size(y,2)
-        z(:,i)=monoLS(y(:,i),normP,derN,regN);
+        z(:,i)=monoLS(y(:,i),normP,derN,regN,oddSign,evenSign);
     end
 else %Vector input-data
     y=reshape(y,length(y),1); %Column-vector
