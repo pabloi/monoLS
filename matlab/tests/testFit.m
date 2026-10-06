@@ -86,5 +86,11 @@ for order = 0:1 %L1 is robust to a gross outlier
     end
     assert(shift(2) < 0.2 * shift(1), 'L1 not robust');
 end
+for s = [1 1e-9 1e-12] %automatic shape selection must not depend on the units of y
+    ys = [5; 4; 4.5; 2; 1; 1.2; 0.5] * s;
+    F0 = monols.fit(ys, 'order', 0);
+    F1 = monols.fit(ys, 'order', 1, 'curvature', 'auto');
+    assert(strcmp(F0.direction, 'decreasing') && strcmp(F1.direction, 'decreasing'), 'scale-dependent auto');
+end
 disp('testFit: PASS')
 end

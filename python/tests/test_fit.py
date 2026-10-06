@@ -127,3 +127,11 @@ def test_l1_is_robust_to_a_gross_outlier(order):
         b = monols.fit(dirty, x, order=order, direction="increasing", loss=loss).fitted
         shift[loss] = np.abs(a - b).max()
     assert shift["l1"] < 0.2 * shift["l2"]
+
+
+@pytest.mark.parametrize("scale", [1.0, 1e-9, 1e-12])
+@pytest.mark.parametrize("order,curvature", [(0, "saturating"), (1, "auto")])
+def test_auto_direction_does_not_depend_on_the_units_of_y(scale, order, curvature):
+    y = np.array([5, 4, 4.5, 2, 1, 1.2, 0.5]) * scale
+    f = monols.fit(y, order=order, curvature=curvature)
+    assert f.direction == "decreasing"
