@@ -5,7 +5,6 @@ cases = jsondecode(fileread(fullfile(here, '..', '..', 'tests', 'fixtures', 'cas
 if iscell(cases), cases = [cases{:}]; end
 for i = 1:numel(cases)
     c = cases(i); o = c.options;
-    if strcmp(o.loss, 'l1'), continue; end %L1 lands in a later commit
     y = vec(c.y);
     F = monols.fit(y, 'x', vec(c.x), 'weights', vec(c.weights), 'order', o.order, ...
         'direction', o.direction, 'curvature', o.curvature, 'loss', o.loss, 'boundary', o.boundary);

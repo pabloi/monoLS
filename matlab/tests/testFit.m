@@ -74,5 +74,17 @@ for ob = [0 3; 1 2; 2 4]' %boundary zeroes the last highest-order divided differ
     assert(max(abs(d(end-b+1:end))) <= 1e-8 * max(abs(d)), 'boundary differences');
     assert(max(abs(z - free)) > 1e-6, 'boundary had no effect');
 end
+for order = 0:1 %L1 is robust to a gross outlier
+    x = linspace(0, 1, 50)'; randn('seed', 5); %#ok<RAND>
+    clean = log1p(5*x) + 0.05*randn(50, 1);
+    dirty = clean; dirty(26) = dirty(26) + 10;
+    shift = zeros(1, 2); losses = {'l2', 'l1'};
+    for li = 1:2
+        A = monols.fit(clean, 'x', x, 'order', order, 'direction', 'increasing', 'loss', losses{li});
+        B = monols.fit(dirty, 'x', x, 'order', order, 'direction', 'increasing', 'loss', losses{li});
+        shift(li) = max(abs(A.fitted - B.fitted));
+    end
+    assert(shift(2) < 0.2 * shift(1), 'L1 not robust');
+end
 disp('testFit: PASS')
 end
