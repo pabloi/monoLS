@@ -26,6 +26,21 @@ def main(max_n=100_000):
             dt = time.perf_counter() - t
             cells.append(f"{dt:.3f} s" + ("" if f.converged else " (!)"))
         print(f"| {n:,} | " + " | ".join(cells) + " |")
+    # Cost grows with the number of knots: nearly noise-free data needs many of them.
+    print("\nHigh SNR (noise sd 1e-3): time [knots]")
+    print("| n | order 1 | order 2 | order 3 |")
+    print("|---|---|---|---|")
+    for n in (10_000, 30_000):
+        if n > max_n:
+            break
+        x = np.linspace(0, 1, n)
+        y = 1 - np.exp(-5 * x) + rng.normal(0, 1e-3, n)
+        cells = []
+        for k in (1, 2, 3):
+            t = time.perf_counter()
+            f = monols.fit(y, x, order=k, direction="increasing", curvature="saturating")
+            cells.append(f"{time.perf_counter() - t:.2f} s [{len(f.knots)}]")
+        print(f"| {n:,} | " + " | ".join(cells) + " |")
 
 
 if __name__ == "__main__":

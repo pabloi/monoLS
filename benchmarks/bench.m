@@ -18,4 +18,18 @@ for n = [1e3 1e4 1e5]
     end
     fprintf('| %d | %s | %s | %s | %s |\n', n, cells{:});
 end
+%Cost grows with the number of knots: nearly noise-free data needs many of them.
+fprintf('\nHigh SNR (noise sd 1e-3): time [knots]\n| n | order 1 | order 2 | order 3 |\n|---|---|---|---|\n');
+for n = [1e4 3e4]
+    if n > maxN, break; end
+    x = linspace(0, 1, n)';
+    y = 1 - exp(-5*x) + 1e-3*randn(n, 1);
+    cells = cell(1, 3);
+    for k = 1:3
+        t = tic;
+        F = monols.fit(y, 'x', x, 'order', k, 'direction', 'increasing', 'curvature', 'saturating');
+        cells{k} = sprintf('%.2f s [%d]', toc(t), numel(F.knots));
+    end
+    fprintf('| %d | %s | %s | %s |\n', n, cells{:});
+end
 end
