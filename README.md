@@ -1,34 +1,119 @@
 # monoLS
-Data smoothing through monotonic curve fitting for Matlab and Octave. It is a nonparametric approach to smoothing/curve-fitting that is useful when we know that the data must be increasing or decreasing, but don't have additional information about it or don't want to use additional assumptions. 
 
-`monoLS` finds the optimal monotonic (i.e. non-negative or non-positive derivative) curve fit to some dataset of (x,y) points. Higher-order derivatives can also be constrained to be of constant sign (or 0), but the same sign has to be used for all odd-order derivatives and for all even-order derivatives.
-A regularization term is used to avoid undue deference to datapoints near the extremes of the x range.
-By default, `monoLS` uses mean-squared errors (2-norm) so it is the least-square solution. In this case, the problem can be framed as a non-negative least squares problem (which is always convex). Any p-norm with finite non-zero p can be used too.
+Shape-constrained least-squares fitting for Python and MATLAB/Octave. You give it samples (x, y),
+and it returns the closest curve that is
 
-## Problem solving
-The large family of problems described above (increasing or decreasing best-fits, with either concave or convex curves and forced signs for the first N-derivatives provided that all odd and all even derivatives have the same sign) can be reduced to the problem of finding a best-fitting function to some data where the first N derivatives are non-negative.
-This is done by flipping as needed the y-axis (which flips the sign of all the derivatives), and the x-axis sign (which flips the sign of odd derivatives only). 
+- **order 0**: monotone (isotonic regression),
+- **order 1**: monotone and convex/concave,
+- **order k**: additionally has divided differences of every order up to k+1 of constant sign
+  (discrete *k-monotone* fits; for example, a decaying exponential at any order).
 
-The problem of finding a solution to the best-fitting function with non-negative first N derivatives can be framed as a p-norm minimization problem on a convex (non-negative) set. It can be shown that this is a convex problem, and thus can be . For the special case of the 2-norm, this is a non-negative least-squares problem. In general, the problem can be cast as:
+It is nonparametric: no functional form is assumed beyond the shape. Fits are piecewise
+polynomials of degree k with data-chosen knots. The Python and MATLAB implementations are
+twins: they follow the same [algorithm spec](spec/ALGORITHM.md) and are tested against the
+same golden fixtures.
 
-$$\text{min}_{\lbrace w_i \rbrace} || Aw - y ||_p \, \, \text{s.t.} \, \, w_i \geq 0, \,\, \forall i$$
+## Install
 
-Where `A` is a triangular matrix, `z=Aw` are the smoothed values we are searching for, and most of the `w_i` represent the n-th order differentials (i.e. the value of the n-th derivative at the sampling points).
+**Python** (≥ 3.9, needs numpy only):
 
-Currently, `monoLS` is able to enforce non-negativity (or non-positivity) up to the 3rd derivative of the data. For forcing up to 2nd derivative, it uses the lsqnonneg routine as a solver. For forcing up to the 3rd derivative, it uses quadprog which is slower but is better behaved numerically. It fails to converge for higher order derivatives although a global optimum must exist (the problem is convex, although numerically ill-conditioned).
+```bash
+pip install "git+https://github.com/pabloi/monoLS#subdirectory=python"
+```
 
-## Basic syntax
+**MATLAB / Octave** (no toolboxes needed): add the `matlab` folder to the path.
 
-## Requirements
-**Matlab:** Optimization toolbox required.
+```matlab
+addpath('monoLS/matlab')
+```
 
-**Octave:** optim, struct, statistics, and io packages required.
+## Usage
 
-For both, the monoLS folder and subfolders need to be added to the path.
+```python
+import monols
 
-## Code structure:
-The code contains two folders: `fun` and `examples`.  
+f = monols.fit(y, x, order=1, direction="decreasing")  # monotone + convex
+f.fitted          # fitted values (NaN where y was NaN)
+f.knots           # where the fit bends
+f.predict(x_new)  # evaluate between/beyond the samples
+```
 
-**`fun` folder:** contains the `incLS` (numeric solver), `monoLS` (wrapper of incLS for additional functionality), and `monoLS2` (experimental alternative solver that does not use `incLS`, no longer supported).
+```matlab
+F = monols.fit(y, 'x', x, 'order', 1, 'direction', 'decreasing');
+F.fitted, F.knots
+yq = monols.predict(F, xq);
+```
 
-**`examples` folder:** contains three test scripts illustrating use and results of `monoLS`.
+| option | values | default |
+|---|---|---|
+| `order` | 0, 1, 2, … | 0 |
+| `direction` | `increasing`, `decreasing`, `auto` (best fit) | `auto` |
+| `curvature` | `saturating` (levels off, like decaying exponentials), `accelerating`, `auto` | `saturating` |
+| `loss` | `l2` (least squares, exact), `l1` (robust to outliers; approximate, solved by IRLS and typically within a fraction of a percent of the optimal L1 loss) | `l2` |
+| `weights` | positive per-sample weights | all 1 |
+| `boundary` | number of samples at the steep end where the highest-order difference is held at 0 (reduces boundary over-fitting) | 0 |
+
+`x` may be irregularly spaced and may contain ties. A matrix `y` is fit column by column.
+See `examples/` for complete scripts in both languages.
+
+**v1 code** still runs: `z = monoLS(y, normP, derN, regN, oddSign, evenSign)` (MATLAB) is now a thin
+wrapper around `monols.fit`. Only `normP` = 1 or 2 is supported. See [CHANGELOG](CHANGELOG.md).
+
+## How it works
+
+The v1 idea is kept: fitted values are z = A·w with w ≥ 0, so the fit is a non-negative least
+squares (NNLS) problem. The columns of A are the start value, slope, …, and the "knots" of the
+(k+1)-th divided difference. v2 builds A for any x spacing and **never forms it**: Aᵀr is computed
+with k+1 cumulative sums in O(n·k), and only columns that enter the solution are built. Each
+iteration costs O(n·|P|²), where |P| is the number of knots, so run time grows with the number of knots. Order 0 uses the pool-adjacent-violators algorithm (PAVA). Higher orders use a structured
+Lawson–Hanson active-set method, and L1 uses iteratively reweighted least squares. Details:
+[spec/ALGORITHM.md](spec/ALGORITHM.md).
+
+## Speed
+
+Time to fit n samples of a noisy saturating curve (Apple M5 Pro, single thread):
+
+| n | order 0 | order 1 | order 2 | order 3 |
+|---|---|---|---|---|
+| **Python** 1,000 | 0.001 s | 0.005 s | 0.011 s | 0.004 s |
+| 10,000 | 0.007 s | 0.107 s | 0.061 s | 0.037 s |
+| 100,000 | 0.067 s | 2.84 s | 1.10 s | 0.69 s |
+| **Octave 11** 1,000 | 0.019 s | 0.024 s | 0.023 s | 0.016 s |
+| 10,000 | 0.115 s | 0.353 s | 0.157 s | 0.123 s |
+| 100,000 | 1.23 s | 3.72 s | 1.53 s | 0.95 s |
+
+Cost grows with the number of knots. Nearly noise-free data needs many knots, especially at
+order 1 (time [knots], noise sd 1e-3):
+
+| n | order 1 | order 2 | order 3 |
+|---|---|---|---|
+| **Python** 10,000 | 2.83 s [97] | 0.25 s [32] | 0.09 s [16] |
+| 30,000 | 12.3 s [116] | 0.76 s [35] | 0.25 s [17] |
+| **Octave 11** 10,000 | 4.08 s [93] | 0.58 s [30] | 0.19 s [14] |
+| 30,000 | 12.1 s [111] | 1.42 s [36] | 0.57 s [13] |
+
+Many-knot fits at n ≈ 10⁵ can take minutes. Incremental QR updates in the active-set loop are the
+planned remedy.
+
+For comparison, v1 (dense n×n matrix with `lsqnonneg`) took 0.73 s for order 0 at n = 3,000 in
+Octave. At n = 100,000 its matrix alone would need 80 GB. Reproduce with `benchmarks/bench.py`
+and `benchmarks/bench.m`.
+
+## Tests
+
+```bash
+pip install -e "python[test]" && pytest python/tests
+octave-cli --eval "cd matlab/tests; runAll"     # or the same command in MATLAB
+```
+
+CI runs both suites on Python 3.9/3.13, Octave and MATLAB. The expected values in
+`tests/fixtures/cases.json` come from an independent dense reference solver
+(`tests/fixtures/make_fixtures.py`).
+
+## Related work
+
+Isotonic regression (PAVA; e.g. scikit-learn's `IsotonicRegression`, R `isotone`), convex regression
+(Hildreth 1954), and discrete k-monotone least squares (R package `pkmon`; Giguelay 2017) cover the
+same family of estimators. The cone-generator (NNLS) formulation is also behind R's `coneproj`
+(Meyer). monoLS offers that family in a single API for both Python and MATLAB, with irregular x,
+weights, an L1 loss, and an O(n·k)-memory solver.
