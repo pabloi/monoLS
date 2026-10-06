@@ -44,4 +44,3 @@ plot(z4,'LineWidth',2,'DisplayName',['Regularized Triple-Monotonic (f'''''' \geq
 plot(y1,'LineWidth',2,'DisplayName',['Generator, e=' num2str(norm(y1-y))])
 legend
 
-%% Compare monoLS and monoLS2

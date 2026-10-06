@@ -29,6 +29,6 @@ For both, the monoLS folder and subfolders need to be added to the path.
 ## Code structure:
 The code contains two folders: `fun` and `examples`.  
 
-**`fun` folder:** contains the `incLS` (numeric solver), `monoLS` (wrapper of incLS for additional functionality), and `monoLS2` (experimental alternative solver that does not use `incLS`, no longer supported).
+**`fun` folder:** contains the `incLS` (numeric solver) and `monoLS` (wrapper of incLS for additional functionality)).
 
-**`examples` folder:** contains three test scripts illustrating use and results of `monoLS`.
+**`examples` folder:** contains example scripts illustrating use and results of `monoLS`.
