@@ -135,3 +135,11 @@ def test_auto_direction_does_not_depend_on_the_units_of_y(scale, order, curvatur
     y = np.array([5, 4, 4.5, 2, 1, 1.2, 0.5]) * scale
     f = monols.fit(y, order=order, curvature=curvature)
     assert f.direction == "decreasing"
+
+
+@pytest.mark.parametrize("order", [0, 1])
+def test_predict_accepts_scalars_and_keeps_shape(order):
+    f = monols.fit(np.array([1.0, 2.0, 3.0]), order=order, direction="increasing")
+    assert np.ndim(f.predict(5.0)) == 0
+    assert float(f.predict(1.0)) == pytest.approx(2.0)
+    assert f.predict(np.zeros((2, 3))).shape == (2, 3)
